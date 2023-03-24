@@ -2,14 +2,28 @@ module App (component) where
 
 import Prelude
 
+import Data.Array (mapWithIndex)
 import Data.Int (decimal, toStringAs)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Traversable (sequence)
+import Effect (Effect)
+import Effect.Aff.Compat (EffectFn1, runEffectFn1)
 import Effect.Class (class MonadEffect)
-import Halogen (ClassName(..))
+import Effect.Class.Console (log, logShow)
 import Halogen as H
 import Halogen.HTML (ClassName(..))
 import Halogen.HTML as HH
+import Halogen.HTML.Events as HE
+import Halogen.HTML.Properties (InputType(..))
 import Halogen.HTML.Properties as HP
+import Web.Event.Event (Event, target)
+import Web.HTML.HTMLInputElement (fromEventTarget, value)
+import Web.UIEvent.InputEvent (data_, fromEvent)
+
+foreign import _consoleLog :: forall a. EffectFn1 a Unit
+
+consoleLog :: forall a. a -> Effect Unit
+consoleLog = runEffectFn1 _consoleLog
 
 type State =
   { puzzle :: Array (Array (Maybe Int))
@@ -30,10 +44,16 @@ initialState _ =
       ]
   }
 
-data Action
+data Action =
+  UpdateCell Int Int Event
 
 handleAction :: forall o m. MonadEffect m => Action -> H.HalogenM State Action () o m Unit
-handleAction _ = pure unit
+handleAction = case _ of
+  UpdateCell i j e -> do
+    v <- H.liftEffect $ sequence (value <$> ((target e) >>= fromEventTarget))
+    H.modify_ \s -> s
+    H.liftEffect $ log $ show { i, j, v }
+    pure unit
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render { puzzle } =
@@ -41,26 +61,30 @@ render { puzzle } =
     [ HP.class_ $ ClassName $ "absolute h-96 w-96 my-auto mx-auto border-2 border-slate-500 flex flex-col "
         <> " inset-1/4"
     ]
-    ( map
-        ( \row -> HH.div
+    ( mapWithIndex
+        ( \i row -> HH.div
             [ HP.id "row"
             , HP.class_ $ ClassName "flex flex-row flex-1"
             ]
-            (map renderCell row)
+            (mapWithIndex (renderCell i) row)
 
         )
         puzzle
     )
   where
-  renderCell cell =
+  renderCell i j cell =
     HH.div
-      [ HP.class_ $ ClassName "border-2 border-slate-100"
+      [ HP.class_ $ ClassName "border-2 border-slate-100 text-center"
       ]
       [ case cell of
           Just v -> HH.text $ toStringAs decimal v
           Nothing ->
             ( HH.input
                 [ HP.class_ $ ClassName "w-full h-full"
+                , HP.style ""
+                , HP.type_ InputNumber
+                , HP.value ""
+                , HE.onInput $ UpdateCell i j
                 ]
             )
       ]
