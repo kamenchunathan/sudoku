@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "postinstall": "spago install",
+    "start": "pnpm install && pnpm dev",
     "dev": "concurrently \"pnpm run dev:tailwind\" \"vite\"",
     "dev:tailwind": "tailwindcss -i src/style.css -o public/style.css --watch",
     "build": "pnpm run build:tailwind && pnpm run build:purescript && vite build",
