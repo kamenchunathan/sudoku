@@ -2,14 +2,14 @@ module App (component) where
 
 import Prelude
 
-import Data.Array (mapWithIndex)
-import Data.Int (decimal, toStringAs)
+import Data.Array (index, mapWithIndex)
+import Data.Int (decimal, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Traversable (sequence)
 import Effect (Effect)
 import Effect.Aff.Compat (EffectFn1, runEffectFn1)
 import Effect.Class (class MonadEffect)
-import Effect.Class.Console (log, logShow)
+import Effect.Class.Console (log)
 import Halogen as H
 import Halogen.HTML (ClassName(..))
 import Halogen.HTML as HH
@@ -18,7 +18,6 @@ import Halogen.HTML.Properties (InputType(..))
 import Halogen.HTML.Properties as HP
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, value)
-import Web.UIEvent.InputEvent (data_, fromEvent)
 
 foreign import _consoleLog :: forall a. EffectFn1 a Unit
 
@@ -51,9 +50,13 @@ handleAction :: forall o m. MonadEffect m => Action -> H.HalogenM State Action (
 handleAction = case _ of
   UpdateCell i j e -> do
     v <- H.liftEffect $ sequence (value <$> ((target e) >>= fromEventTarget))
-    H.modify_ \s -> s
-    H.liftEffect $ log $ show { i, j, v }
-    pure unit
+    let
+      updatePuzzle x row =
+        if x == i then
+          mapWithIndex (\y prev -> if y == j then (v >>= fromStringAs decimal) else prev) row
+        else
+          row
+    H.modify_ (\s -> s { puzzle = mapWithIndex updatePuzzle s.puzzle })
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render { puzzle } =
@@ -74,19 +77,15 @@ render { puzzle } =
   where
   renderCell i j cell =
     HH.div
-      [ HP.class_ $ ClassName "border-2 border-slate-100 text-center"
+      [ HP.class_ $ ClassName "border-2 border-slate-100 text-center flex-1"
       ]
-      [ case cell of
-          Just v -> HH.text $ toStringAs decimal v
-          Nothing ->
-            ( HH.input
-                [ HP.class_ $ ClassName "w-full h-full"
-                , HP.style ""
-                , HP.type_ InputNumber
-                , HP.value ""
-                , HE.onInput $ UpdateCell i j
-                ]
-            )
+      [ HH.input
+          [ HP.class_ $ ClassName "w-full h-full"
+          , HP.style ""
+          , HP.type_ InputNumber
+          , HP.value $ fromMaybe "" $ toStringAs decimal <$> cell
+          , HE.onInput $ UpdateCell i j
+          ]
       ]
 
 component :: forall q o m. MonadEffect m => H.Component q Unit o m
