@@ -91,7 +91,7 @@ render { puzzle } =
           , HP.type_ InputNumber
           , HP.value $ fromMaybe "" $ toStringAs decimal <$> cell
           , HP.max 9.0
-          , HP.min 0.0
+          , HP.min 1.0
           , HP.step $ Step 1.0
           , HE.onInput $ UpdateCell i j
           ]
