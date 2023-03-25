@@ -2,21 +2,31 @@ module App (component) where
 
 import Prelude
 
+import Affjax.RequestBody as Body
+import Affjax.ResponseFormat as AXRF
+import Affjax.Web as AX
+import Config (apiUri)
 import DOM.HTML.Indexed.InputType (InputType(..))
+import Data.Argonaut.Core (jsonEmptyObject)
+import Data.Argonaut.Core as A
 import Data.Array (foldMap, mapWithIndex, unsnoc)
 import Data.Int (decimal, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (joinWith)
 import Data.String.CodeUnits (singleton, toCharArray)
 import Data.Traversable (sequence)
+import Data.Tuple (Tuple(..))
+import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
 import Effect.Class.Console (log)
+import Foreign.Object as Object
 import Halogen as H
 import Halogen.HTML (ClassName(..))
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (StepValue(..))
 import Halogen.HTML.Properties as HP
+import Util (consoleLog)
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, setValue, value)
 
@@ -46,7 +56,12 @@ data Action
   = UpdateCell Int Int Event
   | SubmitPuzzle
 
-handleAction :: forall o m. MonadEffect m => Action -> H.HalogenM State Action () o m Unit
+handleAction
+  :: forall o m
+   . MonadEffect m
+  => MonadAff m
+  => Action
+  -> H.HalogenM State Action () o m Unit
 handleAction = case _ of
   UpdateCell i j e -> do
     v <- H.liftEffect $ sequence (value <$> ((target e) >>= fromEventTarget))
@@ -74,6 +89,16 @@ handleAction = case _ of
   SubmitPuzzle -> do
     puzzle <- H.gets _.puzzle
     H.liftEffect $ log $ puzzleToString puzzle
+    res <- H.liftAff $ AX.post AXRF.json apiUri
+      ( Just $ Body.json
+          ( A.fromObject
+              ( Object.fromFoldable
+                  [ Tuple "puzzle" (A.fromString $ puzzleToString puzzle)
+                  ]
+              )
+          )
+      )
+    H.liftEffect $ consoleLog res
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render { puzzle } =
@@ -120,7 +145,7 @@ render { puzzle } =
           ]
       ]
 
-component :: forall q o m. MonadEffect m => H.Component q Unit o m
+component :: forall q o m. MonadEffect m => MonadAff m => H.Component q Unit o m
 component = H.mkComponent
   { initialState
   , render

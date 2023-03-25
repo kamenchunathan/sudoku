@@ -13,16 +13,23 @@ to generate this file without the comments in this block.
 { name = "my-project"
 , dependencies =
   [ "aff"
+  , "affjax"
+  , "affjax-web"
+  , "argonaut-core"
   , "arrays"
   , "console"
+  , "dom-indexed"
   , "effect"
+  , "foldable-traversable"
+  , "foreign-object"
   , "halogen"
   , "integers"
   , "maybe"
   , "prelude"
+  , "strings"
+  , "tuples"
   , "web-events"
   , "web-html"
-  , "web-uievents"
   ]
 , packages = ./packages.dhall
 , sources = [ "src/**/*.purs", "test/**/*.purs" ]
