@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+actix-cors = "0.6.4"
+actix-web = "4.3.1"
+serde = { version = "1.0.158", features = ["derive"] }
+sudoku-solver = "0.5.0"
