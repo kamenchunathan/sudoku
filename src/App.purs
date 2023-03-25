@@ -2,9 +2,11 @@ module App (component) where
 
 import Prelude
 
-import Data.Array (index, mapWithIndex)
+import Data.Array (mapWithIndex, unsnoc)
 import Data.Int (decimal, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.String as String
+import Data.String.CodeUnits (fromCharArray, singleton, toCharArray)
 import Data.Traversable (sequence)
 import Effect (Effect)
 import Effect.Aff.Compat (EffectFn1, runEffectFn1)
@@ -14,7 +16,7 @@ import Halogen as H
 import Halogen.HTML (ClassName(..))
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
-import Halogen.HTML.Properties (InputType(..))
+import Halogen.HTML.Properties (InputType(..), StepValue(..))
 import Halogen.HTML.Properties as HP
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, value)
@@ -51,18 +53,20 @@ handleAction = case _ of
   UpdateCell i j e -> do
     v <- H.liftEffect $ sequence (value <$> ((target e) >>= fromEventTarget))
     let
+      v' = fromMaybe "" $ singleton <$> (_.last <$> (((unsnoc <<< toCharArray) <$> v >>= identity)))
       updatePuzzle x row =
         if x == i then
-          mapWithIndex (\y prev -> if y == j then (v >>= fromStringAs decimal) else prev) row
+          mapWithIndex (\y prev -> if y == j then (fromStringAs decimal v') else prev) row
         else
           row
     H.modify_ (\s -> s { puzzle = mapWithIndex updatePuzzle s.puzzle })
+    H.liftEffect $ log v'
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render { puzzle } =
   HH.div
     [ HP.class_ $ ClassName $ "absolute h-96 w-96 my-auto mx-auto border-2 border-slate-500 flex flex-col "
-        <> " inset-1/4"
+        <> " inset-1/4 bg-blue-50"
     ]
     ( mapWithIndex
         ( \i row -> HH.div
@@ -77,13 +81,16 @@ render { puzzle } =
   where
   renderCell i j cell =
     HH.div
-      [ HP.class_ $ ClassName "border-2 border-slate-100 text-center flex-1"
+      [ HP.class_ $ ClassName "border-2 border-slate-200 text-center flex-1"
       ]
       [ HH.input
           [ HP.class_ $ ClassName "w-full h-full"
           , HP.style ""
           , HP.type_ InputNumber
           , HP.value $ fromMaybe "" $ toStringAs decimal <$> cell
+          , HP.max 9.0
+          , HP.min 0.0
+          , HP.step $ Step 1.0
           , HE.onInput $ UpdateCell i j
           ]
       ]
