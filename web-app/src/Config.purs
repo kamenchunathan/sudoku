@@ -1,4 +1,4 @@
 module Config where
 
 apiUri :: String
-apiUri = ""
+apiUri = "http://localhost:8000"

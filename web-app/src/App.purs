@@ -3,12 +3,14 @@ module App (component) where
 import Prelude
 
 import DOM.HTML.Indexed.InputType (InputType(..))
-import Data.Array (mapWithIndex, unsnoc)
+import Data.Array (foldMap, mapWithIndex, unsnoc)
 import Data.Int (decimal, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.String (joinWith)
 import Data.String.CodeUnits (singleton, toCharArray)
 import Data.Traversable (sequence)
 import Effect.Class (class MonadEffect)
+import Effect.Class.Console (log)
 import Halogen as H
 import Halogen.HTML (ClassName(..))
 import Halogen.HTML as HH
@@ -37,8 +39,12 @@ initialState _ =
       ]
   }
 
-data Action =
-  UpdateCell Int Int Event
+puzzleToString :: Array (Array (Maybe Int)) -> String
+puzzleToString arr = joinWith "" $ (fromMaybe "." <<< (map (toStringAs decimal))) <$> (foldMap identity arr)
+
+data Action
+  = UpdateCell Int Int Event
+  | SubmitPuzzle
 
 handleAction :: forall o m. MonadEffect m => Action -> H.HalogenM State Action () o m Unit
 handleAction = case _ of
@@ -65,22 +71,38 @@ handleAction = case _ of
     _ <- H.liftEffect $ sequence $ (setValue $ fromMaybe "" $ (toStringAs decimal) <$> sanitized_v) <$> ((target e) >>= fromEventTarget)
     H.modify_ (\s -> s { puzzle = mapWithIndex updatePuzzle s.puzzle })
 
+  SubmitPuzzle -> do
+    puzzle <- H.gets _.puzzle
+    H.liftEffect $ log $ puzzleToString puzzle
+
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render { puzzle } =
   HH.div
-    [ HP.class_ $ ClassName $ "absolute h-96 w-96 my-auto mx-auto border-2 border-slate-500 flex flex-col "
+    [ HP.class_ $ ClassName $ "absolute h-96 w-96 my-auto mx-auto border-2 border-slate-500  "
         <> " inset-1/4 bg-blue-50"
     ]
-    ( mapWithIndex
-        ( \i row -> HH.div
-            [ HP.id "row"
-            , HP.class_ $ ClassName "flex flex-row flex-1"
-            ]
-            (mapWithIndex (renderCell i) row)
+    [ HH.div
+        [ HP.class_ $ ClassName "relative h-full flex flex-col"
+        ]
+        ( mapWithIndex
+            ( \i row -> HH.div
+                [ HP.id "row"
+                , HP.class_ $ ClassName "flex flex-row flex-1"
+                ]
+                (mapWithIndex (renderCell i) row)
 
+            )
+            puzzle
         )
-        puzzle
-    )
+    , HH.div
+        [ HP.class_ $ ClassName "p-2 flex justify-end" ]
+        [ HH.button
+            [ HP.class_ $ ClassName "mr-4 my-2 p-2 text-white text-lg bg-slate-500 rounded-md"
+            , HE.onClick \_ -> SubmitPuzzle
+            ]
+            [ HH.text "Get Solution" ]
+        ]
+    ]
   where
   renderCell i j cell =
     HH.div
@@ -89,6 +111,7 @@ render { puzzle } =
       [ HH.input
           [ HP.class_ $ ClassName "w-full h-full invalid:border-red-400"
           , HP.type_ InputNumber
+          -- NOTE: not strictly needed
           , HP.value $ fromMaybe "" $ toStringAs decimal <$> cell
           , HP.max 9.0
           , HP.min 1.0
