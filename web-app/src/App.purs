@@ -46,9 +46,10 @@ handleAction = case _ of
     v <- H.liftEffect $ sequence (value <$> ((target e) >>= fromEventTarget))
     let
       v' = fromMaybe "" $ singleton <$> (_.last <$> (((unsnoc <<< toCharArray) <$> v >>= identity)))
+      sanitized_v = (fromStringAs decimal v') >>= (\z -> if z == 0 then Nothing else Just z)
       updatePuzzle x row =
         if x == i then
-          mapWithIndex (\y prev -> if y == j then (fromStringAs decimal v') else prev) row
+          mapWithIndex (\y prev -> if y == j then sanitized_v else prev) row
         else
           row
     {-  
@@ -61,7 +62,7 @@ handleAction = case _ of
     value directly
     -}
     _ <- H.liftEffect $ sequence $ (setValue "") <$> ((target e) >>= fromEventTarget)
-    _ <- H.liftEffect $ sequence $ (setValue v') <$> ((target e) >>= fromEventTarget)
+    _ <- H.liftEffect $ sequence $ (setValue $ fromMaybe "" $ (toStringAs decimal) <$> sanitized_v) <$> ((target e) >>= fromEventTarget)
     H.modify_ (\s -> s { puzzle = mapWithIndex updatePuzzle s.puzzle })
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
