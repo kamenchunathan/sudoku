@@ -8,11 +8,7 @@ import Data.Int (decimal, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String.CodeUnits (singleton, toCharArray)
 import Data.Traversable (sequence)
-import Effect (Effect)
-import Effect.Aff.Compat (EffectFn1, runEffectFn1)
 import Effect.Class (class MonadEffect)
-import Effect.Class.Console (log)
-import Halogen (PropName(..))
 import Halogen as H
 import Halogen.HTML (ClassName(..))
 import Halogen.HTML as HH
@@ -21,11 +17,6 @@ import Halogen.HTML.Properties (StepValue(..))
 import Halogen.HTML.Properties as HP
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, setValue, value)
-
-foreign import _consoleLog :: forall a. EffectFn1 a Unit
-
-consoleLog :: forall a. a -> Effect Unit
-consoleLog = runEffectFn1 _consoleLog
 
 type State =
   { puzzle :: Array (Array (Maybe Int))
