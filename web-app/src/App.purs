@@ -175,12 +175,26 @@ render { puzzle, solutions } =
   HH.div
     [ HP.class_ $ ClassName "absolute top-1/4 left-28 right-28" ]
     [ HH.div
-        [ HP.class_ $ ClassName "p-2 flex" ]
-        [ renderPuzzle puzzle
-        , renderPuzzle puzzle
+        [ HP.class_ $ ClassName "p-2 flex justify-between" ]
+        [ HH.div []
+            [ renderPuzzle puzzle
+            , renderButtons
+            ]
+        , renderSolutions solutions
         ]
-    , renderButtons
     ]
+
+renderSolutions :: forall cs m. RemoteData String PuzzleResponse -> H.ComponentHTML Action cs m
+renderSolutions NotAsked = HH.div
+  [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-slate-400 rounded-md" ]
+  [ HH.p
+      [ HP.class_ $ ClassName "w-full text-center text-white text-xl" ]
+      [ HH.text "Press `Get Solution` to get solutions"
+      ]
+  ]
+renderSolutions _ = HH.div []
+  [ HH.text "No solutions"
+  ]
 
 renderButtons :: forall cs m. H.ComponentHTML Action cs m
 renderButtons = HH.div
@@ -200,7 +214,7 @@ renderButtons = HH.div
 renderPuzzle :: forall cs m. Puzzle -> H.ComponentHTML Action cs m
 renderPuzzle puzzle = HH.div
   [ HP.class_ $ ClassName $ "h-96 w-96 my-auto mx-auto border-2 border-slate-500  "
-      <> " bg-blue-50"
+      <> " bg-blue-50 rounded-md"
   ]
   [ HH.div
       [ HP.class_ $ ClassName "relative h-full flex flex-col"
