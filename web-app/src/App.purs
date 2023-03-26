@@ -11,7 +11,7 @@ import Config (apiUri)
 import DOM.HTML.Indexed.InputType (InputType(..))
 import Data.Argonaut (Json, caseJsonArray, caseJsonBoolean, caseJsonObject, caseJsonString)
 import Data.Argonaut.Core as A
-import Data.Array (fold, foldMap, foldr, head, length, mapWithIndex, splitAt, unsnoc)
+import Data.Array (foldMap, length, mapWithIndex, splitAt, unsnoc)
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Int (decimal, fromString, fromStringAs, toStringAs)
@@ -22,8 +22,7 @@ import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
-import Effect.Class.Console (log)
-import Foreign.Object (lookup, toUnfoldable)
+import Foreign.Object (lookup)
 import Foreign.Object as Object
 import Halogen as H
 import Halogen.HTML (ClassName(..))
@@ -31,7 +30,7 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (StepValue(..))
 import Halogen.HTML.Properties as HP
-import Util (consoleLog, unsafeLog)
+import Util (consoleLog)
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, setValue, value)
 
@@ -89,6 +88,7 @@ puzzleStringToArray str =
 data Action
   = UpdateCell Int Int Event
   | SubmitPuzzle
+  | ClearPuzzle
 
 handleAction
   :: forall o m
@@ -134,6 +134,9 @@ handleAction = case _ of
     news <- H.modify (\s -> s { solutions = responseToSolutions res })
     H.liftEffect $ consoleLog news
 
+  ClearPuzzle -> do
+    H.modify_ (\s -> s { puzzle = emptyPuzzle, solutions = NotAsked })
+
 -- H.liftEffect $ consoleLog st
 
 responseToSolutions :: Either Error (Response Json) -> RemoteData String PuzzleResponse
@@ -168,33 +171,50 @@ responseToSolutions (Right { body }) =
     toRemoteData responseObject
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
-render { puzzle } =
+render { puzzle, solutions } =
   HH.div
-    [ HP.class_ $ ClassName $ "absolute h-96 w-96 my-auto mx-auto border-2 border-slate-500  "
-        <> " inset-1/4 bg-blue-50"
-    ]
+    [ HP.class_ $ ClassName "absolute top-1/4 left-28 right-28" ]
     [ HH.div
-        [ HP.class_ $ ClassName "relative h-full flex flex-col"
+        [ HP.class_ $ ClassName "p-2 flex" ]
+        [ renderPuzzle puzzle
+        , renderPuzzle puzzle
         ]
-        ( mapWithIndex
-            ( \i row -> HH.div
-                [ HP.id "row"
-                , HP.class_ $ ClassName "flex flex-row flex-1"
-                ]
-                (mapWithIndex (renderCell i) row)
-
-            )
-            puzzle
-        )
-    , HH.div
-        [ HP.class_ $ ClassName "p-2 flex justify-end" ]
-        [ HH.button
-            [ HP.class_ $ ClassName "mr-4 my-2 p-2 text-white text-lg bg-slate-500 rounded-md"
-            , HE.onClick \_ -> SubmitPuzzle
-            ]
-            [ HH.text "Get Solution" ]
-        ]
+    , renderButtons
     ]
+
+renderButtons :: forall cs m. H.ComponentHTML Action cs m
+renderButtons = HH.div
+  [ HP.class_ $ ClassName "p-2 flex justify-end" ]
+  [ HH.button
+      [ HP.class_ $ ClassName "px-4 my-2 mr-4 text-white bg-slate-400 rounded-md"
+      , HE.onClick \_ -> ClearPuzzle
+      ]
+      [ HH.text "Clear" ]
+  , HH.button
+      [ HP.class_ $ ClassName "mr-4 my-2 p-2 text-white text-lg bg-slate-500 rounded-md"
+      , HE.onClick \_ -> SubmitPuzzle
+      ]
+      [ HH.text "Get Solution" ]
+  ]
+
+renderPuzzle :: forall cs m. Puzzle -> H.ComponentHTML Action cs m
+renderPuzzle puzzle = HH.div
+  [ HP.class_ $ ClassName $ "h-96 w-96 my-auto mx-auto border-2 border-slate-500  "
+      <> " bg-blue-50"
+  ]
+  [ HH.div
+      [ HP.class_ $ ClassName "relative h-full flex flex-col"
+      ]
+      ( mapWithIndex
+          ( \i row -> HH.div
+              [ HP.id "row"
+              , HP.class_ $ ClassName "flex flex-row flex-1"
+              ]
+              (mapWithIndex (renderCell i) row)
+          )
+          puzzle
+      )
+  ]
   where
   renderCell i j cell =
     HH.div
