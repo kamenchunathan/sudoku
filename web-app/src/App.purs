@@ -225,12 +225,7 @@ renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
     , HH.div
         []
         ( mapWithIndex
-            ( \i p ->
-                let
-                  hidden = (Just i) /= currentPuzzle
-                in
-                  renderPuzzle p false hidden
-            )
+            (\i p -> renderPuzzle p false ((Just i) /= currentPuzzle))
             puzzles
         )
     ]
