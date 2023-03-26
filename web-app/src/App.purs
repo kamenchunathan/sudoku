@@ -41,9 +41,11 @@ data RemoteData e a
   | Err e
   | Ok a
 
+-- TODO: duplication of state here look into editing the model
 type PuzzleSolutionData =
   { solvable :: Boolean
   , puzzles :: (Array Puzzle)
+  , currentPuzzle :: Maybe Int
   }
 
 type State =
@@ -146,6 +148,7 @@ responseToSolutions (Right { body }) =
     responseObject = caseJsonObject
       { solvable: Nothing
       , puzzles: Nothing
+      , currentPuzzle: Nothing
       }
       ( \obj ->
           let
@@ -156,14 +159,22 @@ responseToSolutions (Right { body }) =
                       Just $ foldMap (caseJsonString [] Array.singleton) s
                   )
               )
+            currentPuzzle = puzzles >>= (\p -> if length p > 1 then Just 1 else Nothing)
           in
             { solvable
             , puzzles: (map <<< map) puzzleStringToArray puzzles
+            , currentPuzzle
             }
       )
       body
 
-    toRemoteData { solvable: Just solvable, puzzles: Just puzzles } = Ok { solvable, puzzles }
+    toRemoteData
+      ( puzzledata@
+          { solvable:
+              Just solvable
+          , puzzles: Just puzzles
+          }
+      ) = Ok puzzledata { solvable = solvable, puzzles = puzzles }
     toRemoteData _ = Err "Something went wrong"
 
   -- _ = unsafeLog $ toRemoteData responseObject
@@ -200,7 +211,7 @@ renderSolutions (Err e) =
         [ HP.class_ $ ClassName "w-5/6 mx-auto text-center text-white text-xl" ]
         [ HH.text e ]
     ]
-renderSolutions (Ok { solvable, puzzles }) =
+renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
   HH.div
     []
     [ HH.p
@@ -211,7 +222,17 @@ renderSolutions (Ok { solvable, puzzles }) =
             else
               "There were no solutions found for that sudoku puzzle"
         ]
-    , HH.div [] ((\p -> renderPuzzle p false false) <$> puzzles)
+    , HH.div
+        []
+        ( mapWithIndex
+            ( \i p ->
+                let
+                  hidden = (Just i) /= currentPuzzle
+                in
+                  renderPuzzle p false hidden
+            )
+            puzzles
+        )
     ]
 
 renderButtons :: forall cs m. H.ComponentHTML Action cs m
