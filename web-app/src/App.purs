@@ -30,7 +30,6 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (StepValue(..))
 import Halogen.HTML.Properties as HP
-import Util (consoleLog)
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, setValue, value)
 
@@ -135,8 +134,7 @@ handleAction = case _ of
               )
           )
       )
-    news <- H.modify (\s -> s { solutions = responseToSolutions res })
-    H.liftEffect $ consoleLog news
+    H.modify_ (\s -> s { solutions = responseToSolutions res })
 
   ClearPuzzle -> H.modify_ (\s -> s { puzzle = emptyPuzzle, solutions = NotAsked })
 
@@ -221,7 +219,6 @@ responseToSolutions (Right { body }) =
       ) = Ok puzzledata { solvable = solvable, puzzles = puzzles }
     toRemoteData _ = Err "Something went wrong"
 
-  -- _ = unsafeLog $ toRemoteData responseObject
   in
     toRemoteData responseObject
 
@@ -259,7 +256,7 @@ renderSolutions (Err e) =
     []
     [ HH.div [ HP.class_ $ ClassName "h-8" ] []
     , HH.div
-        [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-red-400 rounded-md" ]
+        [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-pink-300 rounded-md" ]
         [ HH.p
             [ HP.class_ $ ClassName "w-5/6 mx-auto text-center text-white text-xl" ]
             [ HH.text e ]
@@ -281,9 +278,18 @@ renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
                   [ HH.text $ "Solution: " <> (toStringAs decimal $ fromMaybe 0 currentPuzzle + 1) ]
               ]
           else
-            HH.p
-              [ HP.class_ $ ClassName "inline-block" ]
-              [ HH.text "There were no solutions found for that sudoku puzzle" ]
+            HH.div
+              []
+              [ HH.div [ HP.class_ $ ClassName "h-8" ] []
+              , HH.div
+                  [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-slate-400 rounded-md" ]
+                  [ HH.p
+                      [ HP.class_ $ ClassName "w-5/6 mx-auto text-center text-white text-xl" ]
+                      [ HH.text "There were no solutions found for that sudoku puzzle" ]
+                  ]
+
+              ]
+
         ]
     , HH.div
         []
@@ -291,7 +297,7 @@ renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
             (\i p -> renderPuzzle p false ((Just i) /= currentPuzzle))
             puzzles
         )
-    , renderSolutionButtons
+    , if solvable then renderSolutionButtons else HH.div_ []
     ]
 
 renderSolutionButtons :: forall cs m. H.ComponentHTML Action cs m
