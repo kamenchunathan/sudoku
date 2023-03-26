@@ -18,6 +18,7 @@ import Data.Int (decimal, fromString, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), joinWith, split)
 import Data.String.CodeUnits (singleton, toCharArray)
+import Data.String.NonEmpty.Internal (toString)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
@@ -214,13 +215,22 @@ renderSolutions (Err e) =
 renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
   HH.div
     []
-    [ HH.p
+    [ HH.div
         []
-        [ HH.text
-            if solvable then
-              "The puzzle can be solved"
-            else
-              "There were no solutions found for that sudoku puzzle"
+        [ if solvable then
+            HH.div
+              [ HP.class_ $ ClassName "flex justify-between" ]
+              [ HH.p
+                  [ HP.class_ $ ClassName "inline-block" ]
+                  [ HH.text $ (toStringAs decimal $ length puzzles) <> " solutions found" ]
+              , HH.p
+                  [ HP.class_ $ ClassName "inline-block" ]
+                  [ HH.text $ "Solution: " <> (toStringAs decimal $ fromMaybe 0 currentPuzzle) ]
+              ]
+          else
+            HH.p
+              [ HP.class_ $ ClassName "inline-block" ]
+              [ HH.text "There were no solutions found for that sudoku puzzle" ]
         ]
     , HH.div
         []
