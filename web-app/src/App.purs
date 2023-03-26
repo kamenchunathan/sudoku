@@ -256,24 +256,25 @@ renderButtons = HH.div
   ]
 
 renderPuzzle :: forall cs m. Puzzle -> Boolean -> Boolean -> H.ComponentHTML Action cs m
-renderPuzzle puzzle editable hidden = HH.div
-  [ HP.class_ $ ClassName $ "h-96 w-96 my-auto mx-auto border-2 border-slate-500  "
-      <> " bg-blue-50 rounded-md"
-      <> display
-  ]
-  [ HH.div
-      [ HP.class_ $ ClassName "relative h-full flex flex-col"
-      ]
-      ( mapWithIndex
-          ( \i row -> HH.div
-              [ HP.id "row"
-              , HP.class_ $ ClassName "flex flex-row flex-1"
-              ]
-              (mapWithIndex (renderCell i) row)
-          )
-          puzzle
-      )
-  ]
+renderPuzzle puzzle editable hidden =
+  HH.div
+    [ HP.class_ $ ClassName $ "h-96 w-96 my-auto mx-auto border-2 border-slate-500  "
+        <> " bg-blue-50 rounded-md"
+        <> display
+    ]
+    [ HH.div
+        [ HP.class_ $ ClassName "relative h-full flex flex-col"
+        ]
+        ( mapWithIndex
+            ( \i row -> HH.div
+                [ HP.id "row"
+                , HP.class_ $ ClassName "flex flex-row flex-1"
+                ]
+                (mapWithIndex (renderCell i) row)
+            )
+            puzzle
+        )
+    ]
   where
   display = if hidden then " hidden " else ""
   renderCell i j cell =
