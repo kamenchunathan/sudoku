@@ -185,13 +185,14 @@ render { puzzle, solutions } =
     ]
 
 renderSolutions :: forall cs m. RemoteData String PuzzleResponse -> H.ComponentHTML Action cs m
-renderSolutions NotAsked = HH.div
-  [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-slate-400 rounded-md" ]
-  [ HH.p
-      [ HP.class_ $ ClassName "w-full text-center text-white text-xl" ]
-      [ HH.text "Press `Get Solution` to get solutions"
-      ]
-  ]
+renderSolutions NotAsked =
+  HH.div
+    [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-slate-400 rounded-md" ]
+    [ HH.p
+        [ HP.class_ $ ClassName "w-full text-center text-white text-xl" ]
+        [ HH.text "Press `Get Solution` to get solutions"
+        ]
+    ]
 renderSolutions _ = HH.div []
   [ HH.text "No solutions"
   ]
