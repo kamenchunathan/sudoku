@@ -225,16 +225,30 @@ responseToSolutions (Right { body }) =
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render { puzzle, solutions } =
   HH.div
-    [ HP.class_ $ ClassName "absolute top-1/4 left-28 right-28" ]
-    [ HH.div
-        [ HP.class_ $ ClassName "p-2 flex justify-between" ]
-        [ HH.div
-            []
-            [ HH.div [ HP.class_ $ ClassName "h-8" ] []
-            , renderPuzzle puzzle true false
-            , renderButtons
+    []
+    [ HH.header
+        [ HP.class_ $ ClassName "w-4/6 mx-auto py-12" ]
+        [ HH.h1
+            [ HP.class_ $ ClassName "text-3xl font-semibold text-center" ]
+            [ HH.text "Sudoku Solver"
             ]
-        , renderSolutions solutions
+        , HH.p
+            [ HP.class_ $ ClassName "text-center p-2" ]
+            [ HH.text "Enter a sudoku and have it solved using the backtracking algorithm" ]
+        ]
+    , HH.div
+        [ HP.class_ $ ClassName "absolute top-1/4 left-[22%]" ]
+        [ HH.div
+            [ HP.class_ $ ClassName "p-2 flex justify-between" ]
+            [ HH.div
+                []
+                [ HH.div [ HP.class_ $ ClassName "h-8" ] []
+                , renderPuzzle puzzle true false
+                , renderButtons
+                ]
+            , HH.div [ HP.class_ $ ClassName "w-36" ] []
+            , renderSolutions solutions
+            ]
         ]
     ]
 
