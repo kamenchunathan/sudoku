@@ -41,7 +41,7 @@ data RemoteData e a
   | Err e
   | Ok a
 
-type PuzzleResponse =
+type PuzzleSolutionData =
   { solvable :: Boolean
   , puzzles :: (Array Puzzle)
   }
@@ -49,7 +49,7 @@ type PuzzleResponse =
 type State =
   { puzzle :: Puzzle
   , solutions ::
-      RemoteData String PuzzleResponse
+      RemoteData String PuzzleSolutionData
   }
 
 emptyPuzzle :: Puzzle
@@ -139,7 +139,7 @@ handleAction = case _ of
 
 -- H.liftEffect $ consoleLog st
 
-responseToSolutions :: Either Error (Response Json) -> RemoteData String PuzzleResponse
+responseToSolutions :: Either Error (Response Json) -> RemoteData String PuzzleSolutionData
 responseToSolutions (Left _) = Err "Something went wrong, Please try again"
 responseToSolutions (Right { body }) =
   let
@@ -177,14 +177,14 @@ render { puzzle, solutions } =
     [ HH.div
         [ HP.class_ $ ClassName "p-2 flex justify-between" ]
         [ HH.div []
-            [ renderPuzzle puzzle
+            [ renderPuzzle puzzle true false
             , renderButtons
             ]
         , renderSolutions solutions
         ]
     ]
 
-renderSolutions :: forall cs m. RemoteData String PuzzleResponse -> H.ComponentHTML Action cs m
+renderSolutions :: forall cs m. RemoteData String PuzzleSolutionData -> H.ComponentHTML Action cs m
 renderSolutions NotAsked =
   HH.div
     [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-slate-400 rounded-md" ]
@@ -193,9 +193,26 @@ renderSolutions NotAsked =
         [ HH.text "Press `Get Solution` to get solutions"
         ]
     ]
-renderSolutions _ = HH.div []
-  [ HH.text "No solutions"
-  ]
+renderSolutions (Err e) =
+  HH.div
+    [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-red-400 rounded-md" ]
+    [ HH.p
+        [ HP.class_ $ ClassName "w-5/6 mx-auto text-center text-white text-xl" ]
+        [ HH.text e ]
+    ]
+renderSolutions (Ok { solvable, puzzles }) =
+  HH.div
+    []
+    [ HH.p
+        []
+        [ HH.text
+            if solvable then
+              "The puzzle can be solved"
+            else
+              "There were no solutions found for that sudoku puzzle"
+        ]
+    , HH.div [] ((\p -> renderPuzzle p false false) <$> puzzles)
+    ]
 
 renderButtons :: forall cs m. H.ComponentHTML Action cs m
 renderButtons = HH.div
@@ -212,10 +229,11 @@ renderButtons = HH.div
       [ HH.text "Get Solution" ]
   ]
 
-renderPuzzle :: forall cs m. Puzzle -> H.ComponentHTML Action cs m
-renderPuzzle puzzle = HH.div
+renderPuzzle :: forall cs m. Puzzle -> Boolean -> Boolean -> H.ComponentHTML Action cs m
+renderPuzzle puzzle editable hidden = HH.div
   [ HP.class_ $ ClassName $ "h-96 w-96 my-auto mx-auto border-2 border-slate-500  "
       <> " bg-blue-50 rounded-md"
+      <> display
   ]
   [ HH.div
       [ HP.class_ $ ClassName "relative h-full flex flex-col"
@@ -231,11 +249,11 @@ renderPuzzle puzzle = HH.div
       )
   ]
   where
+  display = if hidden then " hidden " else ""
   renderCell i j cell =
     HH.div
-      [ HP.class_ $ ClassName "border-2 border-slate-200 text-center flex-1"
-      ]
-      [ HH.input
+      [ HP.class_ $ ClassName "border-2 border-slate-200 text-center flex-1" ]
+      [ if editable then HH.input
           [ HP.class_ $ ClassName "w-full h-full invalid:border-red-400"
           , HP.type_ InputNumber
           -- NOTE: not strictly needed
@@ -245,6 +263,10 @@ renderPuzzle puzzle = HH.div
           , HP.step $ Step 1.0
           , HE.onInput $ UpdateCell i j
           ]
+        else
+          HH.p
+            [ HP.class_ $ ClassName "p-2" ]
+            [ HH.text $ fromMaybe "" $ toStringAs decimal <$> cell ]
       ]
 
 component :: forall q o m. MonadEffect m => MonadAff m => H.Component q Unit o m
