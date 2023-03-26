@@ -6,7 +6,7 @@ use actix_web::{
     App, HttpServer,
 };
 use serde::{Deserialize, Serialize};
-use sudoku_solver::{solve, Board, SolutionIter};
+use sudoku_solver::{Board, SolutionIter};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -38,10 +38,12 @@ struct SolveResult {
 }
 
 fn to_string(b: Board) -> String {
-    dbg!(b.to_string().replace(" ", "").replace("\n", ""))
+   let a =  b.to_string().replace(" ", "").replace("\n", "");
+   println!("{:?}", a);
+      a 
 }
 #[post("/solve")]
-async fn solve_sudoku(data: web::Json<Puzzle>) -> Json<Result<SolveResult, String>> {
+async fn solve_sudoku(data: web::Json<Puzzle>) -> Option<Json<SolveResult>> {
     let a: Vec<_> = data
         .puzzle
         .chars()
@@ -60,7 +62,7 @@ async fn solve_sudoku(data: web::Json<Puzzle>) -> Json<Result<SolveResult, Strin
     let mut solutions = SolutionIter::new(&board).peekable();
     let first_solution = solutions.peek();
 
-    Json(Ok(SolveResult {
+    Some(Json(SolveResult {
         solvable: first_solution.is_some(),
         puzzles: solutions.map(to_string).take(10).collect(),
     }))
