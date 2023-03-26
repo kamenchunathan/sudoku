@@ -18,7 +18,6 @@ import Data.Int (decimal, fromString, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String (Pattern(..), joinWith, split)
 import Data.String.CodeUnits (singleton, toCharArray)
-import Data.String.NonEmpty.Internal (toString)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
@@ -92,6 +91,8 @@ data Action
   = UpdateCell Int Int Event
   | SubmitPuzzle
   | ClearPuzzle
+  | PrevSolution
+  | NextSolution
 
 handleAction
   :: forall o m
@@ -137,10 +138,52 @@ handleAction = case _ of
     news <- H.modify (\s -> s { solutions = responseToSolutions res })
     H.liftEffect $ consoleLog news
 
-  ClearPuzzle -> do
-    H.modify_ (\s -> s { puzzle = emptyPuzzle, solutions = NotAsked })
+  ClearPuzzle -> H.modify_ (\s -> s { puzzle = emptyPuzzle, solutions = NotAsked })
 
--- H.liftEffect $ consoleLog st
+  PrevSolution -> H.modify_
+    ( \s ->
+        case s.solutions of
+          (Ok (sols@{ currentPuzzle, puzzles })) ->
+            s
+              { solutions =
+                  ( Ok
+                      ( sols { currentPuzzle = (wrappingSub (length puzzles) 1 <$> currentPuzzle) }
+                      )
+                  )
+              }
+          _ -> s
+    )
+
+  NextSolution ->
+    H.modify_
+      ( \s ->
+          case s.solutions of
+            (Ok (sols@{ currentPuzzle, puzzles })) ->
+              s
+                { solutions =
+                    ( Ok
+                        ( sols { currentPuzzle = (wrappingAdd (length puzzles - 1) 1 <$> currentPuzzle) }
+                        )
+                    )
+                }
+            _ -> s
+      )
+
+wrappingAdd :: Int -> Int -> Int -> Int
+wrappingAdd max x y =
+  let
+    res = x + y
+    ret = if res > max then res - max else res
+  in
+    ret
+
+wrappingSub :: Int -> Int -> Int -> Int
+wrappingSub max x y =
+  let
+    res = y - x
+    ret = if res < 0 then res + max else res
+  in
+    ret
 
 responseToSolutions :: Either Error (Response Json) -> RemoteData String PuzzleSolutionData
 responseToSolutions (Left _) = Err "Something went wrong, Please try again"
@@ -160,7 +203,7 @@ responseToSolutions (Right { body }) =
                       Just $ foldMap (caseJsonString [] Array.singleton) s
                   )
               )
-            currentPuzzle = puzzles >>= (\p -> if length p > 1 then Just 1 else Nothing)
+            currentPuzzle = puzzles >>= (\p -> if length p > 1 then Just 0 else Nothing)
           in
             { solvable
             , puzzles: (map <<< map) puzzleStringToArray puzzles
@@ -235,7 +278,7 @@ renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
                   [ HH.text $ (toStringAs decimal $ length puzzles) <> " solutions found" ]
               , HH.p
                   [ HP.class_ $ ClassName "inline-block underline text-lg font-semibold" ]
-                  [ HH.text $ "Solution: " <> (toStringAs decimal $ fromMaybe 0 currentPuzzle) ]
+                  [ HH.text $ "Solution: " <> (toStringAs decimal $ fromMaybe 0 currentPuzzle + 1) ]
               ]
           else
             HH.p
@@ -248,6 +291,23 @@ renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
             (\i p -> renderPuzzle p false ((Just i) /= currentPuzzle))
             puzzles
         )
+    , renderSolutionButtons
+    ]
+
+renderSolutionButtons :: forall cs m. H.ComponentHTML Action cs m
+renderSolutionButtons =
+  HH.div
+    [ HP.class_ $ ClassName "p-2 flex justify-end" ]
+    [ HH.button
+        [ HP.class_ $ ClassName "mr-4 my-2 py-2 px-4 text-white text-lg bg-slate-500 rounded-md"
+        , HE.onClick \_ -> PrevSolution
+        ]
+        [ HH.text "Prev" ]
+    , HH.button
+        [ HP.class_ $ ClassName "mr-4 my-2 py-2 px-4 text-white text-lg bg-slate-500 rounded-md"
+        , HE.onClick \_ -> NextSolution
+        ]
+        [ HH.text "Next" ]
     ]
 
 renderButtons :: forall cs m. H.ComponentHTML Action cs m
