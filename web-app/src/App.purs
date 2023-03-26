@@ -188,8 +188,10 @@ render { puzzle, solutions } =
     [ HP.class_ $ ClassName "absolute top-1/4 left-28 right-28" ]
     [ HH.div
         [ HP.class_ $ ClassName "p-2 flex justify-between" ]
-        [ HH.div []
-            [ renderPuzzle puzzle true false
+        [ HH.div
+            []
+            [ HH.div [ HP.class_ $ ClassName "h-8" ] []
+            , renderPuzzle puzzle true false
             , renderButtons
             ]
         , renderSolutions solutions
@@ -199,24 +201,32 @@ render { puzzle, solutions } =
 renderSolutions :: forall cs m. RemoteData String PuzzleSolutionData -> H.ComponentHTML Action cs m
 renderSolutions NotAsked =
   HH.div
-    [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-slate-400 rounded-md" ]
-    [ HH.p
-        [ HP.class_ $ ClassName "w-full text-center text-white text-xl" ]
-        [ HH.text "Press `Get Solution` to get solutions"
+    []
+    [ HH.div [ HP.class_ $ ClassName "h-8" ] []
+    , HH.div
+        [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-slate-400 rounded-md" ]
+        [ HH.p
+            [ HP.class_ $ ClassName "w-full text-center text-white text-xl" ]
+            [ HH.text "Press `Get Solution` to get solutions"
+            ]
         ]
     ]
 renderSolutions (Err e) =
   HH.div
-    [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-red-400 rounded-md" ]
-    [ HH.p
-        [ HP.class_ $ ClassName "w-5/6 mx-auto text-center text-white text-xl" ]
-        [ HH.text e ]
+    []
+    [ HH.div [ HP.class_ $ ClassName "h-8" ] []
+    , HH.div
+        [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-red-400 rounded-md" ]
+        [ HH.p
+            [ HP.class_ $ ClassName "w-5/6 mx-auto text-center text-white text-xl" ]
+            [ HH.text e ]
+        ]
     ]
 renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
   HH.div
     []
     [ HH.div
-        []
+        [ HP.class_ $ ClassName "h-8" ]
         [ if solvable then
             HH.div
               [ HP.class_ $ ClassName "flex justify-between" ]
@@ -224,7 +234,7 @@ renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
                   [ HP.class_ $ ClassName "inline-block" ]
                   [ HH.text $ (toStringAs decimal $ length puzzles) <> " solutions found" ]
               , HH.p
-                  [ HP.class_ $ ClassName "inline-block" ]
+                  [ HP.class_ $ ClassName "inline-block underline text-lg font-semibold" ]
                   [ HH.text $ "Solution: " <> (toStringAs decimal $ fromMaybe 0 currentPuzzle) ]
               ]
           else
