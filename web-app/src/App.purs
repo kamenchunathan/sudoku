@@ -2,23 +2,28 @@ module App (component) where
 
 import Prelude
 
+import Affjax (Error)
 import Affjax.RequestBody as Body
 import Affjax.ResponseFormat as AXRF
+import Affjax.Web (Response)
 import Affjax.Web as AX
 import Config (apiUri)
 import DOM.HTML.Indexed.InputType (InputType(..))
-import Data.Argonaut.Core (jsonEmptyObject)
+import Data.Argonaut (Json, caseJsonArray, caseJsonBoolean, caseJsonObject, caseJsonString)
 import Data.Argonaut.Core as A
-import Data.Array (foldMap, mapWithIndex, unsnoc)
-import Data.Int (decimal, fromStringAs, toStringAs)
+import Data.Array (fold, foldMap, foldr, head, length, mapWithIndex, splitAt, unsnoc)
+import Data.Array as Array
+import Data.Either (Either(..))
+import Data.Int (decimal, fromString, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.String (joinWith)
+import Data.String (Pattern(..), joinWith, split)
 import Data.String.CodeUnits (singleton, toCharArray)
 import Data.Traversable (sequence)
 import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
 import Effect.Class.Console (log)
+import Foreign.Object (lookup, toUnfoldable)
 import Foreign.Object as Object
 import Halogen as H
 import Halogen.HTML (ClassName(..))
@@ -26,31 +31,60 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (StepValue(..))
 import Halogen.HTML.Properties as HP
-import Util (consoleLog)
+import Util (consoleLog, unsafeLog)
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, setValue, value)
 
-type State =
-  { puzzle :: Array (Array (Maybe Int))
+type Puzzle = Array (Array (Maybe Int))
+
+data RemoteData e a
+  = NotAsked
+  | Err e
+  | Ok a
+
+type PuzzleResponse =
+  { solvable :: Boolean
+  , puzzles :: (Array Puzzle)
   }
+
+type State =
+  { puzzle :: Puzzle
+  , solutions ::
+      RemoteData String PuzzleResponse
+  }
+
+emptyPuzzle :: Puzzle
+emptyPuzzle =
+  [ [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
+  ]
 
 initialState :: forall input. input -> State
 initialState _ =
-  { puzzle:
-      [ [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      , [ Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing, Nothing ]
-      ]
+  { puzzle: emptyPuzzle
+  , solutions: NotAsked
+
   }
 
-puzzleToString :: Array (Array (Maybe Int)) -> String
+puzzleToString :: Puzzle -> String
 puzzleToString arr = joinWith "" $ (fromMaybe "." <<< (map (toStringAs decimal))) <$> (foldMap identity arr)
+
+puzzleStringToArray :: String -> Puzzle
+puzzleStringToArray str =
+  inner $ split (Pattern "") str
+  where
+  inner arr =
+    if (length $ _.after $ splitAt 9 arr) == 0 then
+      [ fromString <$> (_.before $ splitAt 9 arr) ]
+    else
+      [ fromString <$> (_.before $ splitAt 9 arr) ] <> (inner $ _.after $ splitAt 9 arr)
 
 data Action
   = UpdateCell Int Int Event
@@ -88,7 +122,6 @@ handleAction = case _ of
 
   SubmitPuzzle -> do
     puzzle <- H.gets _.puzzle
-    H.liftEffect $ log $ puzzleToString puzzle
     res <- H.liftAff $ AX.post AXRF.json apiUri
       ( Just $ Body.json
           ( A.fromObject
@@ -98,7 +131,41 @@ handleAction = case _ of
               )
           )
       )
-    H.liftEffect $ consoleLog res
+    news <- H.modify (\s -> s { solutions = responseToSolutions res })
+    H.liftEffect $ consoleLog news
+
+-- H.liftEffect $ consoleLog st
+
+responseToSolutions :: Either Error (Response Json) -> RemoteData String PuzzleResponse
+responseToSolutions (Left _) = Err "Something went wrong, Please try again"
+responseToSolutions (Right { body }) =
+  let
+    responseObject = caseJsonObject
+      { solvable: Nothing
+      , puzzles: Nothing
+      }
+      ( \obj ->
+          let
+            solvable = lookup "solvable" obj >>= (caseJsonBoolean Nothing Just)
+            puzzles = lookup "puzzles" obj >>=
+              ( caseJsonArray Nothing
+                  ( \s ->
+                      Just $ foldMap (caseJsonString [] Array.singleton) s
+                  )
+              )
+          in
+            { solvable
+            , puzzles: (map <<< map) puzzleStringToArray puzzles
+            }
+      )
+      body
+
+    toRemoteData { solvable: Just solvable, puzzles: Just puzzles } = Ok { solvable, puzzles }
+    toRemoteData _ = Err "Something went wrong"
+
+  -- _ = unsafeLog $ toRemoteData responseObject
+  in
+    toRemoteData responseObject
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render { puzzle } =
