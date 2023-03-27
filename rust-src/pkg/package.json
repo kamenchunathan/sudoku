@@ -1,0 +1,19 @@
+{
+  "name": "sudoku-solver-wasm",
+  "collaborators": [
+    "Nathan Kamenchu <kamenchunathan@gmail.com>"
+  ],
+  "version": "0.1.9",
+  "files": [
+    "sudoku_solver_wasm_bg.wasm",
+    "sudoku_solver_wasm.js",
+    "sudoku_solver_wasm_bg.js",
+    "sudoku_solver_wasm.d.ts"
+  ],
+  "module": "sudoku_solver_wasm.js",
+  "types": "sudoku_solver_wasm.d.ts",
+  "sideEffects": [
+    "./sudoku_solver_wasm.js",
+    "./snippets/*"
+  ]
+}
