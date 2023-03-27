@@ -1,3 +1,5 @@
 import { solve_sudoku } from "sudoku-solver"
 
-export default solve_sudoku;
+export const solve = (a) => {
+  return solve_sudoku(a);
+};

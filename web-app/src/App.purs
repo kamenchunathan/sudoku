@@ -3,23 +3,25 @@ module App (component) where
 import Prelude
 
 import DOM.HTML.Indexed.InputType (InputType(..))
-import Data.Array (length, mapWithIndex, splitAt, unsnoc)
+import Data.Array (foldMap, length, mapWithIndex, splitAt, unsnoc)
 import Data.Int (decimal, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String.CodeUnits (singleton, toCharArray)
 import Data.Traversable (sequence)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
+import Effect.Class.Console (log)
 import Halogen as H
 import Halogen.HTML (ClassName(..))
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties (StepValue(..))
 import Halogen.HTML.Properties as HP
+import Util (unsafeLog)
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, setValue, value)
 
-foreign import solve_sudoku :: Array Int -> Array Int
+foreign import solve :: Array Int -> Array (Array Int)
 
 type Puzzle = Array (Array (Maybe Int))
 
@@ -60,7 +62,7 @@ fromFlatArray arr =
   if (length $ _.after $ splitAt 9 arr) == 0 then
     [ map Just $ _.before $ splitAt 9 arr ]
   else
-    [ map Just $ _.before $ splitAt 9 arr ] <>  (fromFlatArray $ _.after $ splitAt 9 arr)
+    [ map Just $ _.before $ splitAt 9 arr ] <> (fromFlatArray $ _.after $ splitAt 9 arr)
 
 data Action
   = UpdateCell Int Int Event
@@ -99,8 +101,23 @@ handleAction = case _ of
     _ <- H.liftEffect $ sequence $ (setValue $ fromMaybe "" $ (toStringAs decimal) <$> sanitized_v) <$> ((target e) >>= fromEventTarget)
     H.modify_ (\s -> s { puzzle = mapWithIndex updatePuzzle s.puzzle })
 
-  SubmitPuzzle -> pure unit
-  
+  SubmitPuzzle -> do
+    H.modify_
+      ( \s ->
+          let
+            sudoku_solutions = solve $ fromMaybe 0 <$> (foldMap identity s.puzzle)
+            solvable = length sudoku_solutions > 0
+            puzzles = fromFlatArray <$> sudoku_solutions
+          in
+            s
+              { solutions = Just
+                  { solvable
+                  , puzzles
+                  , currentPuzzle: if solvable then Just 0 else Nothing
+                  }
+              }
+      )
+
   ClearPuzzle -> H.modify_ (\s -> s { puzzle = emptyPuzzle, solutions = Nothing })
 
   PrevSolution -> H.modify_
@@ -125,7 +142,7 @@ handleAction = case _ of
               s
                 { solutions =
                     ( Just
-                        ( sols { currentPuzzle = (wrappingAdd (length puzzles - 1) 1 <$> currentPuzzle) })
+                        (sols { currentPuzzle = (wrappingAdd (length puzzles - 1) 1 <$> currentPuzzle) })
                     )
                 }
             _ -> s
@@ -177,7 +194,7 @@ render { puzzle, solutions } =
         ]
     ]
 
-renderSolutions :: forall cs m. Maybe  PuzzleSolutionData -> H.ComponentHTML Action cs m
+renderSolutions :: forall cs m. Maybe PuzzleSolutionData -> H.ComponentHTML Action cs m
 renderSolutions Nothing =
   HH.div
     []
