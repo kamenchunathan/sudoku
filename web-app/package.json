@@ -14,12 +14,17 @@
     "preview": "vite preview",
     "clean": "rm -rf node_modules .spago dist output .purs-repl"
   },
+  "dependencies": {
+    "sudoku-solver": "file:./rust-src/pkg"
+  },
   "devDependencies": {
     "concurrently": "^7.6.0",
     "purescript": "0.15.4",
     "spago": "^0.20.9",
     "tailwindcss": "^3.2.6",
     "typescript": "^4.9.3",
-    "vite": "^4.1.0"
+    "vite": "^4.1.0",
+    "vite-plugin-top-level-await": "^1.3.0",
+    "vite-plugin-wasm": "^3.2.2"
   }
 }
