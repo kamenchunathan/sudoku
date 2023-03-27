@@ -1,6 +1,6 @@
 [package]
 name = "sudoku-solver-wasm"
-version = "0.1.0"
+version = "0.1.9"
 authors = ["Nathan Kamenchu <kamenchunathan@gmail.com>"]
 edition = "2018"
 
@@ -15,6 +15,7 @@ wasm-bindgen = "0.2.63"
 console_error_panic_hook = { version = "0.1.6", optional = true }
 wee_alloc = { version = "0.4.5", optional = true }
 sudoku-solver = "0.5.0"
+js-sys = "0.3.61"
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.13"

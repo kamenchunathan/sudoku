@@ -2427,5 +2427,5 @@ packages:
   file:rust-src/pkg:
     resolution: {directory: rust-src/pkg, type: directory}
     name: sudoku-solver-wasm
-    version: 0.1.0
+    version: 0.1.9
     dev: false
