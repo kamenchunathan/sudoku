@@ -2,28 +2,14 @@ module App (component) where
 
 import Prelude
 
-import Affjax (Error)
-import Affjax.RequestBody as Body
-import Affjax.ResponseFormat as AXRF
-import Affjax.Web (Response)
-import Affjax.Web as AX
-import Config (apiUri)
 import DOM.HTML.Indexed.InputType (InputType(..))
-import Data.Argonaut (Json, caseJsonArray, caseJsonBoolean, caseJsonObject, caseJsonString)
-import Data.Argonaut.Core as A
-import Data.Array (foldMap, length, mapWithIndex, splitAt, unsnoc)
-import Data.Array as Array
-import Data.Either (Either(..))
-import Data.Int (decimal, fromString, fromStringAs, toStringAs)
+import Data.Array (length, mapWithIndex, splitAt, unsnoc)
+import Data.Int (decimal, fromStringAs, toStringAs)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.String (Pattern(..), joinWith, split)
 import Data.String.CodeUnits (singleton, toCharArray)
 import Data.Traversable (sequence)
-import Data.Tuple (Tuple(..))
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (class MonadEffect)
-import Foreign.Object (lookup)
-import Foreign.Object as Object
 import Halogen as H
 import Halogen.HTML (ClassName(..))
 import Halogen.HTML as HH
@@ -33,12 +19,9 @@ import Halogen.HTML.Properties as HP
 import Web.Event.Event (Event, target)
 import Web.HTML.HTMLInputElement (fromEventTarget, setValue, value)
 
-type Puzzle = Array (Array (Maybe Int))
+foreign import solve_sudoku :: Array Int -> Array Int
 
-data RemoteData e a
-  = NotAsked
-  | Err e
-  | Ok a
+type Puzzle = Array (Array (Maybe Int))
 
 -- TODO: duplication of state here look into editing the model
 type PuzzleSolutionData =
@@ -49,8 +32,7 @@ type PuzzleSolutionData =
 
 type State =
   { puzzle :: Puzzle
-  , solutions ::
-      RemoteData String PuzzleSolutionData
+  , solutions :: Maybe PuzzleSolutionData
   }
 
 emptyPuzzle :: Puzzle
@@ -69,22 +51,16 @@ emptyPuzzle =
 initialState :: forall input. input -> State
 initialState _ =
   { puzzle: emptyPuzzle
-  , solutions: NotAsked
+  , solutions: Nothing
 
   }
 
-puzzleToString :: Puzzle -> String
-puzzleToString arr = joinWith "" $ (fromMaybe "." <<< (map (toStringAs decimal))) <$> (foldMap identity arr)
-
-puzzleStringToArray :: String -> Puzzle
-puzzleStringToArray str =
-  inner $ split (Pattern "") str
-  where
-  inner arr =
-    if (length $ _.after $ splitAt 9 arr) == 0 then
-      [ fromString <$> (_.before $ splitAt 9 arr) ]
-    else
-      [ fromString <$> (_.before $ splitAt 9 arr) ] <> (inner $ _.after $ splitAt 9 arr)
+fromFlatArray :: Array Int -> Puzzle
+fromFlatArray arr =
+  if (length $ _.after $ splitAt 9 arr) == 0 then
+    [ map Just $ _.before $ splitAt 9 arr ]
+  else
+    [ map Just $ _.before $ splitAt 9 arr ] <>  (fromFlatArray $ _.after $ splitAt 9 arr)
 
 data Action
   = UpdateCell Int Int Event
@@ -123,28 +99,17 @@ handleAction = case _ of
     _ <- H.liftEffect $ sequence $ (setValue $ fromMaybe "" $ (toStringAs decimal) <$> sanitized_v) <$> ((target e) >>= fromEventTarget)
     H.modify_ (\s -> s { puzzle = mapWithIndex updatePuzzle s.puzzle })
 
-  SubmitPuzzle -> do
-    puzzle <- H.gets _.puzzle
-    res <- H.liftAff $ AX.post AXRF.json apiUri
-      ( Just $ Body.json
-          ( A.fromObject
-              ( Object.fromFoldable
-                  [ Tuple "puzzle" (A.fromString $ puzzleToString puzzle)
-                  ]
-              )
-          )
-      )
-    H.modify_ (\s -> s { solutions = responseToSolutions res })
-
-  ClearPuzzle -> H.modify_ (\s -> s { puzzle = emptyPuzzle, solutions = NotAsked })
+  SubmitPuzzle -> pure unit
+  
+  ClearPuzzle -> H.modify_ (\s -> s { puzzle = emptyPuzzle, solutions = Nothing })
 
   PrevSolution -> H.modify_
     ( \s ->
         case s.solutions of
-          (Ok (sols@{ currentPuzzle, puzzles })) ->
+          (Just (sols@{ currentPuzzle, puzzles })) ->
             s
               { solutions =
-                  ( Ok
+                  ( Just
                       ( sols { currentPuzzle = (wrappingSub (length puzzles) 1 <$> currentPuzzle) }
                       )
                   )
@@ -156,12 +121,11 @@ handleAction = case _ of
     H.modify_
       ( \s ->
           case s.solutions of
-            (Ok (sols@{ currentPuzzle, puzzles })) ->
+            (Just (sols@{ currentPuzzle, puzzles })) ->
               s
                 { solutions =
-                    ( Ok
-                        ( sols { currentPuzzle = (wrappingAdd (length puzzles - 1) 1 <$> currentPuzzle) }
-                        )
+                    ( Just
+                        ( sols { currentPuzzle = (wrappingAdd (length puzzles - 1) 1 <$> currentPuzzle) })
                     )
                 }
             _ -> s
@@ -182,45 +146,6 @@ wrappingSub max x y =
     ret = if res < 0 then res + max else res
   in
     ret
-
-responseToSolutions :: Either Error (Response Json) -> RemoteData String PuzzleSolutionData
-responseToSolutions (Left _) = Err "Something went wrong, Please try again"
-responseToSolutions (Right { body }) =
-  let
-    responseObject = caseJsonObject
-      { solvable: Nothing
-      , puzzles: Nothing
-      , currentPuzzle: Nothing
-      }
-      ( \obj ->
-          let
-            solvable = lookup "solvable" obj >>= (caseJsonBoolean Nothing Just)
-            puzzles = lookup "puzzles" obj >>=
-              ( caseJsonArray Nothing
-                  ( \s ->
-                      Just $ foldMap (caseJsonString [] Array.singleton) s
-                  )
-              )
-            currentPuzzle = puzzles >>= (\p -> if length p > 1 then Just 0 else Nothing)
-          in
-            { solvable
-            , puzzles: (map <<< map) puzzleStringToArray puzzles
-            , currentPuzzle
-            }
-      )
-      body
-
-    toRemoteData
-      ( puzzledata@
-          { solvable:
-              Just solvable
-          , puzzles: Just puzzles
-          }
-      ) = Ok puzzledata { solvable = solvable, puzzles = puzzles }
-    toRemoteData _ = Err "Something went wrong"
-
-  in
-    toRemoteData responseObject
 
 render :: forall cs m. State -> H.ComponentHTML Action cs m
 render { puzzle, solutions } =
@@ -252,8 +177,8 @@ render { puzzle, solutions } =
         ]
     ]
 
-renderSolutions :: forall cs m. RemoteData String PuzzleSolutionData -> H.ComponentHTML Action cs m
-renderSolutions NotAsked =
+renderSolutions :: forall cs m. Maybe  PuzzleSolutionData -> H.ComponentHTML Action cs m
+renderSolutions Nothing =
   HH.div
     []
     [ HH.div [ HP.class_ $ ClassName "h-8" ] []
@@ -265,18 +190,7 @@ renderSolutions NotAsked =
             ]
         ]
     ]
-renderSolutions (Err e) =
-  HH.div
-    []
-    [ HH.div [ HP.class_ $ ClassName "h-8" ] []
-    , HH.div
-        [ HP.class_ $ ClassName "w-96 h-96 flex flex-col justify-center bg-pink-300 rounded-md" ]
-        [ HH.p
-            [ HP.class_ $ ClassName "w-5/6 mx-auto text-center text-white text-xl" ]
-            [ HH.text e ]
-        ]
-    ]
-renderSolutions (Ok { solvable, puzzles, currentPuzzle }) =
+renderSolutions (Just { solvable, puzzles, currentPuzzle }) =
   HH.div
     []
     [ HH.div
